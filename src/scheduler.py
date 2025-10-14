@@ -1,21 +1,6 @@
-"""
-Scheduler + QueueRR stubs for the Multi-Queue Round-Robin Café project.
-
-Rules snapshot:
-- Interactive program; blank line ends session with "Break time!".
-- ENQ auto-generates task IDs as <queue_id>-NNN (1-based, zero-padded).
-- Hardcoded menu must include at least these items (case-sensitive, lowercase):
-  americano=2, latte=3, cappuccino=3, mocha=4, tea=1, macchiato=2, hot_chocolate=4
-- RUN prints the café display AFTER EACH TURN (quantum).
-- RUN steps must satisfy 1 ≤ steps ≤ (#queues).
-- Disallowed for the core queue: collections.deque, queue.Queue, third-party DS.
-"""
-
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-
-# Required menu items; you may add more keys for your own tests/experiments.
 REQUIRED_MENU: Dict[str, int] = {
     "americano": 2,
     "latte": 3,
@@ -26,120 +11,145 @@ REQUIRED_MENU: Dict[str, int] = {
     "hot_chocolate": 4,
 }
 
-
 @dataclass
 class Task:
     task_id: str
     remaining: int
 
-
 class QueueRR:
-    """
-    Implement a FIFO queue from scratch (no deque/Queue for the core).
-    A circular buffer or two-stack queue are fine choices.
-    """
-
     def __init__(self, queue_id: str, capacity: int) -> None:
-        # TODO: initialize your internal storage, size/capacity tracking, etc.
-        raise NotImplementedError
+        self.id = queue_id
+        self.capacity = capacity
+        self.data = [None] * capacity
+        self.front = 0
+        self.rear = 0
+        self.size = 0
 
     def enqueue(self, task: Task) -> bool:
-        """Return True on success; False if full (no mutation if full)."""
-        raise NotImplementedError
+        if self.size == self.capacity:
+            return False
+        self.data[self.rear] = task
+        self.rear = (self.rear + 1) % self.capacity
+        self.size += 1
+        return True
 
     def dequeue(self) -> Optional[Task]:
-        """Remove and return the front task; return None if empty."""
-        raise NotImplementedError
+        if self.size == 0:
+            return None
+        t = self.data[self.front]
+        self.data[self.front] = None
+        self.front = (self.front + 1) % self.capacity
+        self.size -= 1
+        return t
 
-    def __len__(self) -> int:  # pragma: no cover - trivial when implemented
-        raise NotImplementedError
+    def peek(self) -> Optional[Task]:
+        if self.size == 0:
+            return None
+        return self.data[self.front]
 
+    def __len__(self) -> int:
+        return self.size
 
 class Scheduler:
-    """
-    Orchestrates multiple QueueRR instances in creation order.
-    Maintains:
-      - current time (minutes)
-      - per-queue auto-incrementing counters for task ids
-      - per-queue pending SKIP flags
-      - RR pointer for the next queue to visit
-    """
-
     def __init__(self) -> None:
-        # TODO: initialize time, queues (ordered), id_counters, skip flags, rr index.
-        raise NotImplementedError
-
-    # ----- Menu / state helpers -----
+        self.time = 0
+        self.queues: Dict[str, QueueRR] = {}
+        self.q_order: List[str] = []
+        self.id_counters: Dict[str, int] = {}
+        self.skip_flags: Dict[str, bool] = {}
+        self.menu_map = dict(REQUIRED_MENU)
+        self.rr_index = 0
 
     def menu(self) -> Dict[str, int]:
-        """
-        Return the current menu mapping. Start with REQUIRED_MENU exactly.
-        You may return a copy to avoid external mutation.
-        """
-        raise NotImplementedError
+        return dict(self.menu_map)
 
     def next_queue(self) -> Optional[str]:
-        """
-        Return the queue_id that will be visited next (or None if no queues).
-        """
-        raise NotImplementedError
-
-    # ----- Commands -----
+        if not self.q_order:
+            return None
+        return self.q_order[self.rr_index]
 
     def create_queue(self, queue_id: str, capacity: int) -> List[str]:
-        """
-        Log: time=<t> event=create queue=<queue_id>
-        Creation order defines RR order.
-        """
-        raise NotImplementedError
+        if queue_id not in self.queues:
+            q = QueueRR(queue_id, capacity)
+            self.queues[queue_id] = q
+            self.q_order.append(queue_id)
+            self.id_counters[queue_id] = 1
+            self.skip_flags[queue_id] = False
+            return [f"time={self.time} event=create queue={queue_id}"]
+        return []
 
     def enqueue(self, queue_id: str, item_name: str) -> List[str]:
-        """
-        Behavior:
-          - If item_name not in menu: print "Sorry, we don't serve that."
-            and log reject with reason=unknown_item.
-          - Else construct next task id as <queue_id>-NNN and try to enqueue:
-              - On success: log enqueue with remaining=<burst>.
-              - On full: print "Sorry, we're at capacity."
-                and log reject with reason=full.
-        """
-        raise NotImplementedError
+        if item_name not in self.menu_map:
+            print("Sorry, we don't serve that.")
+            return [f"time={self.time} event=reject queue={queue_id} reason=unknown_item"]
+        if queue_id not in self.queues:
+            return [f"time={self.time} event=reject queue={queue_id} reason=unknown_queue"]
+        burst = self.menu_map[item_name]
+        tid_num = self.id_counters[queue_id]
+        self.id_counters[queue_id] += 1
+        task_id = f"{queue_id}-{tid_num:03d}"
+        t = Task(task_id, burst)
+        q = self.queues[queue_id]
+        if not q.enqueue(t):
+            print("Sorry, we're at capacity.")
+            return [f"time={self.time} event=reject queue={queue_id} reason=full"]
+        return [f"time={self.time} event=enqueue queue={queue_id} task={task_id} remaining={burst}"]
 
     def mark_skip(self, queue_id: str) -> List[str]:
-        """
-        Mark the queue to be skipped on its next visit (does not advance time).
-        Log: time=<t> event=skip queue=<queue_id>
-        """
-        raise NotImplementedError
+        if queue_id in self.skip_flags:
+            self.skip_flags[queue_id] = True
+            return [f"time={self.time} event=skip queue={queue_id}"]
+        return []
 
     def run(self, quantum: int, steps: Optional[int]) -> List[str]:
-        """
-        Execute up to 'steps' turns (each turn visits one queue) if provided,
-        otherwise run until all queues are empty and no pending skips.
-
-        Validate steps: 1 ≤ steps ≤ (#queues); otherwise:
-          Log: time=<t> event=error reason=invalid_steps
-          and do not perform any turns.
-
-        Each visited queue should produce:
-          - a run log:   time=<t> event=run queue=<qid>
-          - zero-time transitions for empty/skip visits (no time advance)
-          - if work occurs: time increases by min(remaining, quantum)
-            and follow with work/finish logs as appropriate.
-        """
-        raise NotImplementedError
-
-    # ----- Display -----
+        n = len(self.q_order)
+        if n == 0:
+            return []
+        if steps is not None:
+            if not (1 <= steps <= n):
+                return [f"time={self.time} event=error reason=invalid_steps"]
+        logs: List[str] = []
+        turns = steps if steps is not None else n
+        visited = 0
+        while visited < turns:
+            qid = self.q_order[self.rr_index]
+            logs.append(f"time={self.time} event=run queue={qid}")
+            if self.skip_flags[qid]:
+                self.skip_flags[qid] = False
+            else:
+                q = self.queues[qid]
+                if len(q) > 0:
+                    t = q.peek()
+                    work = min(t.remaining, quantum)
+                    t.remaining -= work
+                    self.time += work
+                    logs.append(f"time={self.time} event=work queue={qid} task={t.task_id} ran={work} rem={t.remaining}")
+                    if t.remaining == 0:
+                        q.dequeue()
+                        logs.append(f"time={self.time} event=finish queue={qid} task={t.task_id}")
+            self.rr_index = (self.rr_index + 1) % n
+            visited += 1
+        return logs
 
     def display(self) -> List[str]:
-        """
-        Return a compact snapshot with the exact lines/format:
+        lines: List[str] = []
+        next_q = self.next_queue()
+        next_str = next_q if next_q is not None else "None"
+        lines.append(f"display time={self.time} next={next_str}")
+        menu_items = ",".join(f"{k}:{self.menu_map[k]}" for k in sorted(self.menu_map.keys()))
+        lines.append(f"display menu=[{menu_items}]")
+        for qid in self.q_order:
+            q = self.queues[qid]
+            skip_tag = " skip" if self.skip_flags[qid] else ""
+            tasks_repr = []
+            idx = q.front
+            count = q.size
+            for _ in range(count):
+                t = q.data[idx]
+                tasks_repr.append(f"{t.task_id}:{t.remaining}")
+                idx = (idx + 1) % q.capacity
+            tasks_str = ",".join(tasks_repr)
+            lines.append(f"display {qid} [{len(q)}/{q.capacity}]{skip_tag} -> [{tasks_str}]")
+        return lines
 
-          display time=<t> next=<qid_or_none>
-          display menu=[name:minutes,...sorted by name...]
-          display <qid> [n/cap][ skip] -> [task:rem,task:rem,...]
-          ...
 
-        NOTE: The CLI prints this after EACH RUN TURN only.
-        """
-        raise NotImplementedError
