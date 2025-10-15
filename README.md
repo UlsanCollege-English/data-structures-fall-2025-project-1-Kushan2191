@@ -1,50 +1,76 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/JWEh_q2R)
 # Multi-Queue Round-Robin Café (Interactive CLI)
+
+This project simulates a **multi-queue round-robin scheduling system** for a campus café.  
+Customers arrive in different queues (e.g., Mobile, Walk-ins, Faculty), and the barista serves them fairly by rotating between queues in a **round-robin** fashion.  
+
+The system provides an **interactive CLI** that:
+- Parses commands like `CREATE`, `ENQ`, `SKIP`, and `RUN`.
+- Uses a scheduler to manage multiple queues with individual capacities.
+- Simulates serving tasks with time quanta, producing logs and display output after each run.
+
+This is Project 1 for **Data Structures – Fall 2025**.
+
+---
 
 ## How to run
 
-(Insert directions to run your program here.)
+1. Open a terminal and move to the **project root directory**:
 
+   ```bash
+   cd data-structures-fall-2025-project-1-Kushan2191
+Run the interactive CLI:
 
-## How to run tests locally
-(Insert directions to run your tests here.)
+bash
+Copy code
+python -m src.cli
+Enter commands one per line. For example:
 
+css
+Copy code
+CREATE A 3
+CREATE B 2
+ENQ A latte
+ENQ B mocha
+ENQ A tea
+RUN 5 2
 
-## Complexity Notes
-Briefly justify:
+To end the session, press Enter on a blank line:
 
-- Your queue design (e.g., circular buffer).
+css
+Copy code
+Break time!
+How to run tests locally
+Make sure pytest is installed:
 
-- Time complexity: enqueue, dequeue amortized O(1); run is O(#turns + total_minutes_worked).
+bash
+Copy code
+pip install pytest
+Run the tests from the project root:
 
-- Space complexity: O(N) tasks + metadata.
+bash
+Copy code
+# Windows (PowerShell)
+$env:PYTHONPATH="src"
+python -m pytest
 
+# macOS/Linux
+PYTHONPATH=src python -m pytest
+This sets the Python module path so the tests can find scheduler and parser under src/.
 
-## **Delete this section before submission.**
-### Common pitfalls
-- Display should print after each RUN turn only.
+Complexity Notes
+Queue design:
+Each queue is implemented using a circular buffer (or collections.deque) to achieve constant-time operations without shifting elements.
 
-- Don’t advance time on empty or skipped queues.
+Time complexity:
 
-- Enforce 1 ≤ steps ≤ #queues for RUN.
+enqueue: O(1) amortized
 
-- Auto task IDs per queue: <queue_id>-NNN (zero-padded).
+dequeue: O(1) amortized
 
-- Use exact messages:
+run: O(#turns + total_minutes_worked) — each turn processes up to the specified quantum.
 
-    - Sorry, we're at capacity.
+Space complexity:
 
-    - Sorry, we don't serve that.
+O(N), where N is the total number of enqueued items plus metadata for queues.
 
-
-### Grading rubric (I will be using this to grade your submission)
-
-**__Correctness (50):__** RR behavior, logs, display-per-turn, auto task ids, menu handling, rejects.
-
-**__Complexity notes (15):__** correct, concise, justified.
-
-**__Student tests (15):__** ≥4 targeted, deterministic tests incl. steps validation.
-
-**__Code quality (10):__** structure, type hints on public surfaces, docstrings, PEP 8.
-
-**__Docs & UX (10):__** README completeness; exact messages; clear CLI.
+Each queue uses a fixed-size buffer equal to its capacity.
